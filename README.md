@@ -15,6 +15,13 @@ from runcrate import Runcrate
 
 client = Runcrate(api_key="rc_live_...")
 
+# Chat completion
+response = client.models.chat_completion(
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+print(response.choices[0].message.content)
+
 # List GPU instances
 instances = client.instances.list()
 
@@ -44,9 +51,11 @@ from runcrate import AsyncRuncrate
 
 async def main():
     async with AsyncRuncrate(api_key="rc_live_...") as client:
-        instances = await client.instances.list()
-        balance = await client.billing.get_balance()
-        print(f"Running {len(instances)} instances, ${balance.credits_balance} credits")
+        response = await client.models.chat_completion(
+            model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+            messages=[{"role": "user", "content": "Hello!"}],
+        )
+        print(response.choices[0].message.content)
 
 asyncio.run(main())
 ```
@@ -55,14 +64,110 @@ asyncio.run(main())
 
 ```python
 client = Runcrate(
-    api_key="rc_live_...",       # or set RUNCRATE_API_KEY env var
-    base_url="https://runcrate.com",  # default
-    timeout=30.0,                # request timeout in seconds
-    max_retries=3,               # retry on 429/5xx with exponential backoff
+    api_key="rc_live_...",                        # or set RUNCRATE_API_KEY env var
+    base_url="https://runcrate.com",              # infra API (default)
+    inference_url="https://api.runcrate.ai",      # model inference API (default)
+    timeout=30.0,                                 # request timeout in seconds
+    max_retries=3,                                # retry on 429/5xx with exponential backoff
 )
 ```
 
-## Resources
+## Model Inference
+
+The `client.models` resource connects to `api.runcrate.ai` for AI model inference. Same API key works for both infrastructure and inference.
+
+### Chat Completions
+
+```python
+# Standard request
+response = client.models.chat_completion(
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Explain quantum computing in 3 sentences."},
+    ],
+    max_tokens=256,
+    temperature=0.7,
+)
+print(response.choices[0].message.content)
+print(f"Tokens used: {response.usage.total_tokens}")
+
+# Streaming
+for chunk in client.models.chat_completion(
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct",
+    messages=[{"role": "user", "content": "Write a poem about GPUs"}],
+    stream=True,
+):
+    delta = chunk.get("choices", [{}])[0].get("delta", {})
+    print(delta.get("content", ""), end="", flush=True)
+```
+
+### Image Generation
+
+```python
+result = client.models.generate_image(
+    model="black-forest-labs/FLUX.1-schnell",
+    prompt="A futuristic city skyline at sunset",
+    width=1024,
+    height=1024,
+)
+# result.data[0].b64_json contains the base64-encoded image
+```
+
+### Video Generation
+
+```python
+# Submit video job (async processing)
+job = client.models.generate_video(
+    model="google/veo-3.0",
+    prompt="A drone flyover of a mountain landscape",
+    duration=8,
+)
+print(f"Job ID: {job.id}, Status: {job.status}")
+
+# Poll until complete
+import time
+while True:
+    job = client.models.get_video_status(job.id)
+    print(f"Status: {job.status}")
+    if job.status in ("completed", "failed"):
+        break
+    time.sleep(5)
+
+# Download the video
+if job.status == "completed":
+    video_bytes = client.models.download_video(job.id)
+    with open("output.mp4", "wb") as f:
+        f.write(video_bytes)
+```
+
+### Text-to-Speech
+
+```python
+audio_bytes = client.models.text_to_speech(
+    model="openai/tts-1",
+    input="Hello, welcome to Runcrate!",
+    voice="alloy",
+    response_format="mp3",
+)
+with open("speech.mp3", "wb") as f:
+    f.write(audio_bytes)
+```
+
+### Transcription (Speech-to-Text)
+
+```python
+with open("audio.wav", "rb") as f:
+    result = client.models.transcribe(
+        model="openai/whisper-1",
+        file=f,
+        filename="audio.wav",
+    )
+print(result.text)
+print(f"Duration: {result.duration}s")
+```
+
+## Infrastructure Resources
 
 ### Instances
 

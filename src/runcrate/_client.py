@@ -4,15 +4,25 @@ from __future__ import annotations
 
 from typing import Optional
 
+import httpx
+
 from runcrate._config import ClientConfig
 from runcrate._transport import AsyncTransport, SyncTransport
 from runcrate.resources.billing import AsyncBilling, Billing
 from runcrate.resources.crates import AsyncCrates, Crates
 from runcrate.resources.instances import AsyncInstances, Instances
+from runcrate.resources.models import AsyncModels, Models
 from runcrate.resources.projects import AsyncProjects, Projects
 from runcrate.resources.ssh_keys import AsyncSSHKeys, SSHKeys
 from runcrate.resources.storage import AsyncStorage, Storage
 from runcrate.resources.templates import AsyncTemplates, Templates
+
+
+def _make_headers(api_key: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {api_key}",
+        "User-Agent": "runcrate-python/0.1.0",
+    }
 
 
 class Runcrate:
@@ -37,16 +47,25 @@ class Runcrate:
         api_key: Optional[str] = None,
         *,
         base_url: Optional[str] = None,
+        inference_url: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
     ) -> None:
         self._config = ClientConfig.from_args(
             api_key=api_key,
             base_url=base_url,
+            inference_url=inference_url,
             timeout=timeout,
             max_retries=max_retries,
         )
         self._transport = SyncTransport(self._config)
+
+        # Separate httpx client for inference API (api.runcrate.ai)
+        self._inference_client = httpx.Client(
+            base_url=self._config.inference_url,
+            headers=_make_headers(self._config.api_key),
+            timeout=self._config.timeout,
+        )
 
         self.instances = Instances(self._transport)
         self.crates = Crates(self._transport)
@@ -55,9 +74,11 @@ class Runcrate:
         self.storage = Storage(self._transport)
         self.billing = Billing(self._transport)
         self.templates = Templates(self._transport)
+        self.models = Models(self._inference_client)
 
     def close(self) -> None:
         self._transport.close()
+        self._inference_client.close()
 
     def __enter__(self) -> Runcrate:
         return self
@@ -82,16 +103,25 @@ class AsyncRuncrate:
         api_key: Optional[str] = None,
         *,
         base_url: Optional[str] = None,
+        inference_url: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
     ) -> None:
         self._config = ClientConfig.from_args(
             api_key=api_key,
             base_url=base_url,
+            inference_url=inference_url,
             timeout=timeout,
             max_retries=max_retries,
         )
         self._transport = AsyncTransport(self._config)
+
+        # Separate httpx client for inference API (api.runcrate.ai)
+        self._inference_client = httpx.AsyncClient(
+            base_url=self._config.inference_url,
+            headers=_make_headers(self._config.api_key),
+            timeout=self._config.timeout,
+        )
 
         self.instances = AsyncInstances(self._transport)
         self.crates = AsyncCrates(self._transport)
@@ -100,9 +130,11 @@ class AsyncRuncrate:
         self.storage = AsyncStorage(self._transport)
         self.billing = AsyncBilling(self._transport)
         self.templates = AsyncTemplates(self._transport)
+        self.models = AsyncModels(self._inference_client)
 
     async def close(self) -> None:
         await self._transport.close()
+        await self._inference_client.aclose()
 
     async def __aenter__(self) -> AsyncRuncrate:
         return self

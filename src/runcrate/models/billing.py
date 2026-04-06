@@ -12,7 +12,6 @@ class Balance(BaseModel):
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     credits_balance: float = Field(alias="creditsBalance")
-    original_balance: float = Field(alias="originalBalance")
     active_usage_cost: float = Field(alias="activeUsageCost")
 
 
