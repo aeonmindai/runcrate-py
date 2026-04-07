@@ -61,6 +61,10 @@ class ConflictError(ApiError):
     """409 - Resource conflict (e.g., duplicate SSH key)."""
 
 
+class UnprocessableEntityError(ApiError):
+    """422 - Validation error (e.g., invalid model parameters)."""
+
+
 class RateLimitError(ApiError):
     """429 - Rate limit exceeded."""
 
@@ -84,27 +88,58 @@ _STATUS_MAP: dict[int, type[ApiError]] = {
     403: PermissionDeniedError,
     404: NotFoundError,
     409: ConflictError,
+    422: UnprocessableEntityError,
     429: RateLimitError,
     500: InternalServerError,
 }
+
+
+def _extract_error_info(body: Any) -> tuple[Optional[str], str, Optional[dict[str, Any]]]:
+    """Extract message, code, and details from various error response formats."""
+    if not isinstance(body, dict):
+        return None, "api_error", None
+
+    # Format: { error: { code, message, details } }
+    err = body.get("error")
+    if isinstance(err, dict):
+        return (
+            err.get("message"),
+            err.get("code", "api_error"),
+            err.get("details"),
+        )
+
+    # Format: { error: "string message" }
+    if isinstance(err, str):
+        return err, "api_error", None
+
+    # Format: { message: "string" }
+    if isinstance(body.get("message"), str):
+        return body["message"], body.get("code", "api_error"), None
+
+    # Format: { detail: "string" } (FastAPI style)
+    if isinstance(body.get("detail"), str):
+        return body["detail"], "api_error", None
+
+    return None, "api_error", None
 
 
 def make_api_error(response: httpx.Response) -> ApiError:
     """Create the appropriate ApiError subclass from an HTTP response."""
     try:
         body = response.json()
-        err = body.get("error", {})
-        code = err.get("code", "unknown")
-        message = err.get("message", response.text)
-        details = err.get("details")
     except Exception:
-        code = "unknown"
-        message = response.text or f"HTTP {response.status_code}"
-        details = None
+        body = None
+
+    extracted_message, code, details = _extract_error_info(body)
+
+    # Fallback: use raw response text if we couldn't extract a message
+    if extracted_message is None:
+        text = response.text or ""
+        extracted_message = text[:500] if text else f"HTTP {response.status_code}"
 
     cls = _STATUS_MAP.get(response.status_code, ApiError)
     return cls(
-        message,
+        extracted_message,
         status_code=response.status_code,
         code=code,
         details=details,

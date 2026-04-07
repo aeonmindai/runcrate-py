@@ -22,6 +22,40 @@ from runcrate.models.models import (
 )
 
 
+_IMAGE_FIELDS = {"image", "start_image", "mask", "control_image"}
+
+
+def _resolve_image(value: Any) -> Any:
+    """Convert file paths to base64 data URIs. Pass through URLs and base64 strings."""
+    if not isinstance(value, str):
+        return value
+    # Already a URL or data URI
+    if value.startswith(("http://", "https://", "data:")):
+        return value
+    # Already base64 (long string without path separators)
+    if len(value) > 200 and "/" not in value and "\\" not in value:
+        return value
+    # Try as file path
+    import base64 as b64
+    import os
+    if os.path.isfile(value):
+        ext = os.path.splitext(value)[1].lower().lstrip(".")
+        mime_map = {"png": "image/png", "jpg": "image/jpeg", "jpeg": "image/jpeg", "webp": "image/webp", "gif": "image/gif"}
+        mime = mime_map.get(ext, "image/png")
+        with open(value, "rb") as f:
+            encoded = b64.b64encode(f.read()).decode()
+        return f"data:{mime};base64,{encoded}"
+    return value
+
+
+def _resolve_image_fields(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Resolve any image fields in kwargs."""
+    for key in list(kwargs.keys()):
+        if key in _IMAGE_FIELDS:
+            kwargs[key] = _resolve_image(kwargs[key])
+    return kwargs
+
+
 class Models:
     """Synchronous model inference operations."""
 
@@ -40,6 +74,7 @@ class Models:
         stop: Optional[Union[str, list[str]]] = None,
         frequency_penalty: Optional[float] = None,
         presence_penalty: Optional[float] = None,
+        **kwargs: Any,
     ) -> Union[ChatCompletion, Iterator[dict[str, Any]]]:
         parsed_messages = [ChatMessage(**m) for m in messages]
         body = ChatCompletionRequest(
@@ -53,6 +88,7 @@ class Models:
             frequency_penalty=frequency_penalty,
             presence_penalty=presence_penalty,
         ).model_dump(exclude_none=True)
+        body.update(kwargs)
 
         if stream:
             return self._stream_chat(body)
@@ -88,6 +124,7 @@ class Models:
         guidance: Optional[float] = None,
         seed: Optional[int] = None,
         negative_prompt: Optional[str] = None,
+        **kwargs: Any,
     ) -> ImageGeneration:
         body = ImageGenerationRequest(
             model=model,
@@ -101,6 +138,7 @@ class Models:
             seed=seed,
             negative_prompt=negative_prompt,
         ).model_dump(exclude_none=True)
+        body.update(_resolve_image_fields(kwargs))
 
         response = self._client.post("/v1/images/generations", json=body, timeout=120.0)
         if response.status_code >= 400:
@@ -116,6 +154,7 @@ class Models:
         aspect_ratio: Optional[str] = None,
         width: Optional[int] = None,
         height: Optional[int] = None,
+        **kwargs: Any,
     ) -> VideoJob:
         body = VideoGenerationRequest(
             model=model,
@@ -125,6 +164,7 @@ class Models:
             width=width,
             height=height,
         ).model_dump(exclude_none=True)
+        body.update(_resolve_image_fields(kwargs))
 
         response = self._client.post("/v1/videos", json=body, timeout=120.0)
         if response.status_code >= 400:
@@ -155,13 +195,9 @@ class Models:
         height: Optional[int] = None,
         poll_interval: float = 5.0,
         on_status: Optional[Any] = None,
+        **kwargs: Any,
     ) -> VideoJob:
-        """Submit a video job, poll until done, and save to file.
-
-        Args:
-            path: File path to save the video (e.g. "output.mp4").
-            on_status: Optional callback called with the VideoJob on each poll.
-        """
+        """Submit a video job, poll until done, and save to file."""
         job = self.generate_video(
             model=model,
             prompt=prompt,
@@ -169,6 +205,7 @@ class Models:
             aspect_ratio=aspect_ratio,
             width=width,
             height=height,
+            **kwargs,
         )
 
         while job.status not in ("completed", "failed"):
@@ -193,6 +230,7 @@ class Models:
         input: str,
         voice: Optional[str] = None,
         response_format: Optional[str] = None,
+        **kwargs: Any,
     ) -> bytes:
         body = TTSRequest(
             model=model,
@@ -200,6 +238,7 @@ class Models:
             voice=voice,
             response_format=response_format,
         ).model_dump(exclude_none=True)
+        body.update(kwargs)
 
         response = self._client.post("/v1/audio/speech", json=body, timeout=120.0)
         if response.status_code >= 400:
@@ -212,15 +251,25 @@ class Models:
         model: str,
         file: Union[bytes, BinaryIO],
         filename: str = "audio.wav",
+        language: Optional[str] = None,
+        response_format: Optional[str] = None,
+        **kwargs: Any,
     ) -> Transcription:
         if isinstance(file, bytes):
             files = {"file": (filename, file)}
         else:
             files = {"file": (filename, file)}
 
+        data: dict[str, Any] = {"model": model}
+        if language is not None:
+            data["language"] = language
+        if response_format is not None:
+            data["response_format"] = response_format
+        data.update(kwargs)
+
         response = self._client.post(
             "/v1/audio/transcriptions",
-            data={"model": model},
+            data=data,
             files=files,
             timeout=120.0,
         )
@@ -247,6 +296,7 @@ class AsyncModels:
         stop: Optional[Union[str, list[str]]] = None,
         frequency_penalty: Optional[float] = None,
         presence_penalty: Optional[float] = None,
+        **kwargs: Any,
     ) -> Union[ChatCompletion, AsyncIterator[dict[str, Any]]]:
         parsed_messages = [ChatMessage(**m) for m in messages]
         body = ChatCompletionRequest(
@@ -260,6 +310,7 @@ class AsyncModels:
             frequency_penalty=frequency_penalty,
             presence_penalty=presence_penalty,
         ).model_dump(exclude_none=True)
+        body.update(kwargs)
 
         if stream:
             return self._stream_chat(body)
@@ -295,6 +346,7 @@ class AsyncModels:
         guidance: Optional[float] = None,
         seed: Optional[int] = None,
         negative_prompt: Optional[str] = None,
+        **kwargs: Any,
     ) -> ImageGeneration:
         body = ImageGenerationRequest(
             model=model,
@@ -308,6 +360,7 @@ class AsyncModels:
             seed=seed,
             negative_prompt=negative_prompt,
         ).model_dump(exclude_none=True)
+        body.update(kwargs)
 
         response = await self._client.post("/v1/images/generations", json=body, timeout=120.0)
         if response.status_code >= 400:
@@ -323,6 +376,7 @@ class AsyncModels:
         aspect_ratio: Optional[str] = None,
         width: Optional[int] = None,
         height: Optional[int] = None,
+        **kwargs: Any,
     ) -> VideoJob:
         body = VideoGenerationRequest(
             model=model,
@@ -332,6 +386,7 @@ class AsyncModels:
             width=width,
             height=height,
         ).model_dump(exclude_none=True)
+        body.update(kwargs)
 
         response = await self._client.post("/v1/videos", json=body, timeout=120.0)
         if response.status_code >= 400:
@@ -362,6 +417,7 @@ class AsyncModels:
         height: Optional[int] = None,
         poll_interval: float = 5.0,
         on_status: Optional[Any] = None,
+        **kwargs: Any,
     ) -> VideoJob:
         """Submit a video job, poll until done, and save to file."""
         import asyncio
@@ -373,6 +429,7 @@ class AsyncModels:
             aspect_ratio=aspect_ratio,
             width=width,
             height=height,
+            **kwargs,
         )
 
         while job.status not in ("completed", "failed"):
@@ -397,6 +454,7 @@ class AsyncModels:
         input: str,
         voice: Optional[str] = None,
         response_format: Optional[str] = None,
+        **kwargs: Any,
     ) -> bytes:
         body = TTSRequest(
             model=model,
@@ -404,6 +462,7 @@ class AsyncModels:
             voice=voice,
             response_format=response_format,
         ).model_dump(exclude_none=True)
+        body.update(kwargs)
 
         response = await self._client.post("/v1/audio/speech", json=body, timeout=120.0)
         if response.status_code >= 400:
@@ -416,15 +475,25 @@ class AsyncModels:
         model: str,
         file: Union[bytes, BinaryIO],
         filename: str = "audio.wav",
+        language: Optional[str] = None,
+        response_format: Optional[str] = None,
+        **kwargs: Any,
     ) -> Transcription:
         if isinstance(file, bytes):
             files = {"file": (filename, file)}
         else:
             files = {"file": (filename, file)}
 
+        data: dict[str, Any] = {"model": model}
+        if language is not None:
+            data["language"] = language
+        if response_format is not None:
+            data["response_format"] = response_format
+        data.update(kwargs)
+
         response = await self._client.post(
             "/v1/audio/transcriptions",
-            data={"model": model},
+            data=data,
             files=files,
             timeout=120.0,
         )
