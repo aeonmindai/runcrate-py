@@ -10,12 +10,14 @@ from runcrate._config import ClientConfig
 from runcrate._transport import AsyncTransport, SyncTransport
 from runcrate.resources.billing import AsyncBilling, Billing
 from runcrate.resources.crates import AsyncCrates, Crates
+from runcrate.resources.environments import AsyncEnvironments, Environments
 from runcrate.resources.instances import AsyncInstances, Instances
 from runcrate.resources.models import AsyncModels, Models
 from runcrate.resources.projects import AsyncProjects, Projects
 from runcrate.resources.ssh_keys import AsyncSSHKeys, SSHKeys
 from runcrate.resources.storage import AsyncStorage, Storage
 from runcrate.resources.templates import AsyncTemplates, Templates
+from runcrate.resources.workspaces import AsyncWorkspaces, Workspaces
 
 
 def _make_headers(api_key: str) -> dict[str, str]:
@@ -69,7 +71,9 @@ class Runcrate:
 
         self.instances = Instances(self._transport)
         self.crates = Crates(self._transport)
-        self.projects = Projects(self._transport)
+        self.workspaces = Workspaces(self._transport)
+        self.environments = Environments(self._transport)
+        self.projects = Projects(self._transport)  # deprecated — use workspaces
         self.ssh_keys = SSHKeys(self._transport)
         self.storage = Storage(self._transport)
         self.billing = Billing(self._transport)
@@ -125,7 +129,9 @@ class AsyncRuncrate:
 
         self.instances = AsyncInstances(self._transport)
         self.crates = AsyncCrates(self._transport)
-        self.projects = AsyncProjects(self._transport)
+        self.workspaces = AsyncWorkspaces(self._transport)
+        self.environments = AsyncEnvironments(self._transport)
+        self.projects = AsyncProjects(self._transport)  # deprecated — use workspaces
         self.ssh_keys = AsyncSSHKeys(self._transport)
         self.storage = AsyncStorage(self._transport)
         self.billing = AsyncBilling(self._transport)
