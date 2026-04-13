@@ -11,7 +11,7 @@ from runcrate import Runcrate
 
 @pytest.fixture
 def base_url() -> str:
-    return "https://test.runcrate.com"
+    return "https://test.runcrate.ai"
 
 
 @pytest.fixture

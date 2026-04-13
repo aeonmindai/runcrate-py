@@ -21,3 +21,24 @@ class StorageVolume(BaseModel):
     project_id: Optional[str] = Field(None, alias="projectId")
     created_at: Optional[datetime] = Field(None, alias="createdAt")
     updated_at: Optional[datetime] = Field(None, alias="updatedAt")
+
+
+class StorageCreate(BaseModel):
+    name: str
+    size_gb: int
+    region: str
+
+
+class StorageDeleteResult(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    message: str
+    refund_amount: Optional[float] = None
+
+
+class StorageRegion(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    id: str
+    name: str
+    provider: str

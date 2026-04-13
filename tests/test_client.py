@@ -30,13 +30,13 @@ class TestClientInit:
         client.close()
 
     def test_custom_base_url(self):
-        client = Runcrate(api_key="rc_live_test", base_url="https://staging.runcrate.com")
-        assert client._config.base_url == "https://staging.runcrate.com"
+        client = Runcrate(api_key="rc_live_test", base_url="https://staging.runcrate.ai")
+        assert client._config.base_url == "https://staging.runcrate.ai"
         client.close()
 
     def test_trailing_slash_stripped(self):
-        client = Runcrate(api_key="rc_live_test", base_url="https://runcrate.com/")
-        assert client._config.base_url == "https://runcrate.com"
+        client = Runcrate(api_key="rc_live_test", base_url="https://runcrate.ai/")
+        assert client._config.base_url == "https://runcrate.ai"
         client.close()
 
     def test_custom_timeout(self):

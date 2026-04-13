@@ -1,6 +1,6 @@
 # Runcrate Python SDK
 
-Official Python SDK for the [Runcrate](https://runcrate.com) API.
+Official Python SDK for the [Runcrate](https://runcrate.ai) API.
 
 ## Installation
 
@@ -65,7 +65,7 @@ asyncio.run(main())
 ```python
 client = Runcrate(
     api_key="rc_live_...",                        # or set RUNCRATE_API_KEY env var
-    base_url="https://runcrate.com",              # infra API (default)
+    base_url="https://runcrate.ai",               # infra API (default)
     inference_url="https://api.runcrate.ai",      # model inference API (default)
     timeout=30.0,                                 # request timeout in seconds
     max_retries=3,                                # retry on 429/5xx with exponential backoff

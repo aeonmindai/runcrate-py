@@ -52,6 +52,7 @@ class Runcrate:
         inference_url: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
+        environment: Optional[str] = None,
     ) -> None:
         self._config = ClientConfig.from_args(
             api_key=api_key,
@@ -59,6 +60,7 @@ class Runcrate:
             inference_url=inference_url,
             timeout=timeout,
             max_retries=max_retries,
+            environment=environment,
         )
         self._transport = SyncTransport(self._config)
 
@@ -110,6 +112,7 @@ class AsyncRuncrate:
         inference_url: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
+        environment: Optional[str] = None,
     ) -> None:
         self._config = ClientConfig.from_args(
             api_key=api_key,
@@ -117,6 +120,7 @@ class AsyncRuncrate:
             inference_url=inference_url,
             timeout=timeout,
             max_retries=max_retries,
+            environment=environment,
         )
         self._transport = AsyncTransport(self._config)
 

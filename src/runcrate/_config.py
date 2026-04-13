@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
-_DEFAULT_BASE_URL = "https://runcrate.com"
+_DEFAULT_BASE_URL = "https://runcrate.ai"
 _DEFAULT_INFERENCE_URL = "https://api.runcrate.ai"
 _DEFAULT_TIMEOUT = 30.0
 _DEFAULT_MAX_RETRIES = 3
@@ -21,6 +21,7 @@ class ClientConfig:
     timeout: float = _DEFAULT_TIMEOUT
     max_retries: int = _DEFAULT_MAX_RETRIES
     custom_headers: dict[str, str] = field(default_factory=dict)
+    environment: Optional[str] = None
 
     @classmethod
     def from_args(
@@ -30,6 +31,7 @@ class ClientConfig:
         inference_url: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
+        environment: Optional[str] = None,
     ) -> ClientConfig:
         resolved_key = api_key or os.environ.get("RUNCRATE_API_KEY", "")
         if not resolved_key:
@@ -45,4 +47,5 @@ class ClientConfig:
             inference_url=(inference_url or _DEFAULT_INFERENCE_URL).rstrip("/"),
             timeout=timeout if timeout is not None else _DEFAULT_TIMEOUT,
             max_retries=max_retries if max_retries is not None else _DEFAULT_MAX_RETRIES,
+            environment=environment,
         )

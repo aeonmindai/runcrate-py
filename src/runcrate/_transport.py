@@ -110,6 +110,10 @@ class SyncTransport:
         json: Optional[dict[str, Any]] = None,
         cast_to: Optional[Type[T]] = None,
     ) -> Any:
+        # Inject environment param if configured
+        if self._config.environment:
+            params = {"environment": self._config.environment, **(params or {})}
+
         last_exc: Optional[Exception] = None
 
         for attempt in range(self._config.max_retries + 1):
@@ -169,6 +173,10 @@ class AsyncTransport:
         cast_to: Optional[Type[T]] = None,
     ) -> Any:
         import asyncio
+
+        # Inject environment param if configured
+        if self._config.environment:
+            params = {"environment": self._config.environment, **(params or {})}
 
         last_exc: Optional[Exception] = None
 
