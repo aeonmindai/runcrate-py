@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
-_DEFAULT_BASE_URL = "https://runcrate.ai"
+_DEFAULT_BASE_URL = "https://www.runcrate.ai"
 _DEFAULT_INFERENCE_URL = "https://api.runcrate.ai"
 _DEFAULT_TIMEOUT = 30.0
 _DEFAULT_MAX_RETRIES = 3
