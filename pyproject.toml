@@ -3,16 +3,24 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "runcrate"
+name = "runcrate-sdk"
 version = "0.1.0"
 description = "Official Python SDK for the Runcrate API"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
+authors = [
+    { name = "Runcrate", email = "support@runcrate.ai" }
+]
 dependencies = [
     "httpx>=0.25.0,<1.0",
     "pydantic>=2.0,<3.0",
 ]
+
+[project.urls]
+Homepage = "https://runcrate.ai"
+Repository = "https://github.com/aeonmindai/runcrate-py"
+Documentation = "https://runcrate.ai/docs"
 
 [project.optional-dependencies]
 dev = [

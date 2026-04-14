@@ -79,7 +79,10 @@ class ImageData(BaseModel):
     revised_prompt: Optional[str] = None
 
     def to_bytes(self) -> bytes:
-        """Get raw image bytes, handling base64 and data URIs automatically."""
+        """Get raw image bytes, handling base64 and data URIs automatically.
+
+        Note: For async contexts, use `to_bytes_async()` to avoid blocking.
+        """
         import base64 as b64
 
         if self.b64_json:
@@ -92,10 +95,33 @@ class ImageData(BaseModel):
             return httpx.get(self.url).content
         raise ValueError("No image data available")
 
+    async def to_bytes_async(self) -> bytes:
+        """Get raw image bytes asynchronously. Use this in async contexts."""
+        import base64 as b64
+
+        if self.b64_json:
+            return b64.b64decode(self.b64_json)
+        if self.url and self.url.startswith("data:"):
+            raw = self.url.split(",", 1)[1]
+            return b64.b64decode(raw)
+        if self.url:
+            import httpx
+            async with httpx.AsyncClient() as client:
+                response = await client.get(self.url)
+                return response.content
+        raise ValueError("No image data available")
+
     def save(self, path: str) -> None:
         """Save image to a file."""
         with open(path, "wb") as f:
             f.write(self.to_bytes())
+
+    async def save_async(self, path: str) -> None:
+        """Save image to a file asynchronously."""
+        import aiofiles
+        data = await self.to_bytes_async()
+        async with aiofiles.open(path, "wb") as f:
+            await f.write(data)
 
 
 class ImageGeneration(BaseModel):

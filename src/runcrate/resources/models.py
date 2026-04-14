@@ -360,7 +360,7 @@ class AsyncModels:
             seed=seed,
             negative_prompt=negative_prompt,
         ).model_dump(exclude_none=True)
-        body.update(kwargs)
+        body.update(_resolve_image_fields(kwargs))
 
         response = await self._client.post("/v1/images/generations", json=body, timeout=120.0)
         if response.status_code >= 400:

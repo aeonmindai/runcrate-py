@@ -180,23 +180,14 @@ client.instances.get_status("instance-id")
 client.instances.list_types(gpu_type="A100", region="us-east")
 ```
 
-### Crates
+### Environments
 
 ```python
-client.crates.list()
-client.crates.create(name="jupyter", ssh_key_id="key", gpu_type="A100")
-client.crates.get("crate-id")
-client.crates.terminate("crate-id")
-```
-
-### Projects
-
-```python
-client.projects.list()
-client.projects.create(name="my-project")
-client.projects.get("project-id")
-client.projects.update("project-id", name="new-name")
-client.projects.delete("project-id")
+client.environments.list()
+client.environments.create(name="staging")
+client.environments.get("env-id")
+client.environments.update("env-id", name="production")
+client.environments.delete("env-id")
 ```
 
 ### SSH Keys

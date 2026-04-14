@@ -56,8 +56,7 @@ class TestClientInit:
     def test_resource_namespaces_exist(self):
         client = Runcrate(api_key="rc_live_test")
         assert hasattr(client, "instances")
-        assert hasattr(client, "crates")
-        assert hasattr(client, "projects")
+        assert hasattr(client, "environments")
         assert hasattr(client, "ssh_keys")
         assert hasattr(client, "storage")
         assert hasattr(client, "billing")
