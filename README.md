@@ -5,7 +5,7 @@ Official Python SDK for the [Runcrate](https://runcrate.ai) API.
 ## Installation
 
 ```bash
-pip install runcrate
+pip install runcrate-sdk
 ```
 
 ## Quick Start
