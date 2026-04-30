@@ -13,8 +13,36 @@ jobs:
         with:
           python-version: '3.11'
       - run: pip install build twine
-      - run: python -m build
-      - run: twine upload dist/*
+
+      - name: Build runcrate-sdk
+        run: python -m build --outdir dist-runcrate
+
+      # Publish the same code under the ai-sdk distribution name with a
+      # renamed top-level package (runcrate -> ai_sdk) so the ai-sdk PyPI
+      # page is fully self-contained: `pip install ai-sdk` exposes
+      # `import ai_sdk`, no runcrate-sdk dependency leaks through.
+      - name: Build ai-sdk variant
+        run: |
+          set -euo pipefail
+          BUILD_DIR="$RUNNER_TEMP/ai-sdk-build"
+          rsync -a --exclude='.git' --exclude='dist*' --exclude='build' --exclude='*.egg-info' ./ "$BUILD_DIR/"
+          cd "$BUILD_DIR"
+          mv src/runcrate src/ai_sdk
+          find src tests -type f -name '*.py' -print0 | xargs -0 sed -i \
+            -e 's/\bfrom runcrate\b/from ai_sdk/g' \
+            -e 's/\bimport runcrate\b/import ai_sdk/g'
+          sed -i \
+            -e 's/^name = "runcrate-sdk"$/name = "ai-sdk"/' \
+            -e 's|"src/runcrate"|"src/ai_sdk"|' \
+            pyproject.toml
+          sed -i \
+            -e 's/pip install runcrate-sdk/pip install ai-sdk/g' \
+            -e 's/from runcrate import/from ai_sdk import/g' \
+            README.md
+          python -m build --outdir "$GITHUB_WORKSPACE/dist-ai"
+
+      - name: Upload to PyPI
+        run: twine upload dist-runcrate/* dist-ai/*
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
