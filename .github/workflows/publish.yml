@@ -42,7 +42,7 @@ jobs:
           python -m build --outdir "$GITHUB_WORKSPACE/dist-ai"
 
       - name: Upload to PyPI
-        run: twine upload dist-runcrate/* dist-ai/*
+        run: twine upload --skip-existing dist-runcrate/* dist-ai/*
         env:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
