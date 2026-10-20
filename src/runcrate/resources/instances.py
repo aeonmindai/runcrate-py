@@ -3,8 +3,31 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from urllib.parse import quote
 
 from runcrate.models.instances import Instance, InstanceCreate, InstanceStatus, InstanceType
+
+
+class _Unchanged:
+    """Marks an ``update`` argument that was not passed, as opposed to ``None`` (turn off)."""
+
+    def __repr__(self) -> str:
+        return "UNCHANGED"
+
+
+UNCHANGED: Any = _Unchanged()
+
+
+def _auto_stop_body(max_runtime_minutes: Any, idle_shutdown_minutes: Any) -> dict[str, Any]:
+    """The PATCH body: only the limits that were passed; ``None`` is sent as null."""
+    body: dict[str, Any] = {}
+    if max_runtime_minutes is not UNCHANGED:
+        body["max_runtime_minutes"] = max_runtime_minutes
+    if idle_shutdown_minutes is not UNCHANGED:
+        body["idle_shutdown_minutes"] = idle_shutdown_minutes
+    if not body:
+        raise ValueError("Pass max_runtime_minutes, idle_shutdown_minutes or both (None turns one off).")
+    return body
 
 
 class Instances:
@@ -40,7 +63,25 @@ class Instances:
         storage_id: Optional[str] = None,
         launch_script: Optional[str] = None,
         launch_script_base64: Optional[str] = None,
+        max_runtime_minutes: Optional[int] = None,
+        idle_shutdown_minutes: Optional[int] = None,
     ) -> Instance:
+        """Launch a GPU instance.
+
+        Args:
+            max_runtime_minutes: Terminate the instance automatically after it has been
+                running this many minutes (5 to 10080). The clock starts when the instance
+                first becomes running, and an alert goes out 10 minutes before the stop.
+                ``None`` (the default) means no limit.
+            idle_shutdown_minutes: Terminate the instance once GPU utilisation stays under
+                5% with nobody connected (SSH, web terminal or editor) for this many minutes
+                (5 to 1440). GPU instances only. ``None`` (the default) turns idle stop off.
+
+        Set both when an agent or script launches instances unattended, so a forgotten
+        instance stops on its own. Values out of range raise ``UnprocessableEntityError`` (422). A launch
+        in an environment that has reached its monthly budget raises
+        ``InsufficientCreditsError`` with ``code == "BUDGET_REACHED"``.
+        """
         body = InstanceCreate(
             name=name,
             ssh_key_id=ssh_key_id,
@@ -57,6 +98,8 @@ class Instances:
             storage_id=storage_id,
             launch_script=launch_script,
             launch_script_base64=launch_script_base64,
+            max_runtime_minutes=max_runtime_minutes,
+            idle_shutdown_minutes=idle_shutdown_minutes,
         ).model_dump(exclude_none=True)
         data, _ = self._transport.request(
             "POST", "/api/v1/instances", json=body, cast_to=Instance
@@ -66,6 +109,36 @@ class Instances:
     def get(self, id: str) -> Instance:
         data, _ = self._transport.request(
             "GET", f"/api/v1/instances/{id}", cast_to=Instance
+        )
+        return data
+
+    def update(
+        self,
+        id: str,
+        *,
+        max_runtime_minutes: Optional[int] = UNCHANGED,
+        idle_shutdown_minutes: Optional[int] = UNCHANGED,
+    ) -> Instance:
+        """Change a starting or running instance's auto stop, by id or unique name.
+
+        Args:
+            max_runtime_minutes: Total minutes the instance may run, counted from when it
+                started running (5 to 10080). A change never stops it sooner than 2 minutes
+                from now. Extend it before a long job. ``None`` turns it off.
+            idle_shutdown_minutes: Minutes of GPU utilisation under 5% with nobody connected
+                before termination (5 to 1440). GPU instances launched with idle stop
+                support only. ``None`` turns it off.
+
+        Leave an argument out to keep its value. Returns the instance with its new
+        ``auto_stop_at``. Out-of-range values raise ``UnprocessableEntityError`` (422);
+        ``ConflictError`` (409) means the instance is not live, has
+        no GPU for idle stop, or was launched before idle stop existed.
+        """
+        data, _ = self._transport.request(
+            "PATCH",
+            f"/api/v1/instances/{quote(id, safe='')}",
+            json=_auto_stop_body(max_runtime_minutes, idle_shutdown_minutes),
+            cast_to=Instance,
         )
         return data
 
@@ -131,7 +204,25 @@ class AsyncInstances:
         storage_id: Optional[str] = None,
         launch_script: Optional[str] = None,
         launch_script_base64: Optional[str] = None,
+        max_runtime_minutes: Optional[int] = None,
+        idle_shutdown_minutes: Optional[int] = None,
     ) -> Instance:
+        """Launch a GPU instance.
+
+        Args:
+            max_runtime_minutes: Terminate the instance automatically after it has been
+                running this many minutes (5 to 10080). The clock starts when the instance
+                first becomes running, and an alert goes out 10 minutes before the stop.
+                ``None`` (the default) means no limit.
+            idle_shutdown_minutes: Terminate the instance once GPU utilisation stays under
+                5% with nobody connected (SSH, web terminal or editor) for this many minutes
+                (5 to 1440). GPU instances only. ``None`` (the default) turns idle stop off.
+
+        Set both when an agent or script launches instances unattended, so a forgotten
+        instance stops on its own. Values out of range raise ``UnprocessableEntityError`` (422). A launch
+        in an environment that has reached its monthly budget raises
+        ``InsufficientCreditsError`` with ``code == "BUDGET_REACHED"``.
+        """
         body = InstanceCreate(
             name=name,
             ssh_key_id=ssh_key_id,
@@ -148,6 +239,8 @@ class AsyncInstances:
             storage_id=storage_id,
             launch_script=launch_script,
             launch_script_base64=launch_script_base64,
+            max_runtime_minutes=max_runtime_minutes,
+            idle_shutdown_minutes=idle_shutdown_minutes,
         ).model_dump(exclude_none=True)
         data, _ = await self._transport.request(
             "POST", "/api/v1/instances", json=body, cast_to=Instance
@@ -157,6 +250,36 @@ class AsyncInstances:
     async def get(self, id: str) -> Instance:
         data, _ = await self._transport.request(
             "GET", f"/api/v1/instances/{id}", cast_to=Instance
+        )
+        return data
+
+    async def update(
+        self,
+        id: str,
+        *,
+        max_runtime_minutes: Optional[int] = UNCHANGED,
+        idle_shutdown_minutes: Optional[int] = UNCHANGED,
+    ) -> Instance:
+        """Change a starting or running instance's auto stop, by id or unique name.
+
+        Args:
+            max_runtime_minutes: Total minutes the instance may run, counted from when it
+                started running (5 to 10080). A change never stops it sooner than 2 minutes
+                from now. Extend it before a long job. ``None`` turns it off.
+            idle_shutdown_minutes: Minutes of GPU utilisation under 5% with nobody connected
+                before termination (5 to 1440). GPU instances launched with idle stop
+                support only. ``None`` turns it off.
+
+        Leave an argument out to keep its value. Returns the instance with its new
+        ``auto_stop_at``. Out-of-range values raise ``UnprocessableEntityError`` (422);
+        ``ConflictError`` (409) means the instance is not live, has
+        no GPU for idle stop, or was launched before idle stop existed.
+        """
+        data, _ = await self._transport.request(
+            "PATCH",
+            f"/api/v1/instances/{quote(id, safe='')}",
+            json=_auto_stop_body(max_runtime_minutes, idle_shutdown_minutes),
+            cast_to=Instance,
         )
         return data
 

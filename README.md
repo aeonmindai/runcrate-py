@@ -218,6 +218,40 @@ Recurring runs must be at least 15 minutes apart, `run_at` can be up to 365 days
 
 Each run launches as `schedule.run_as`, the person who created the schedule or last changed its spec or timing or resumed it, using the same kind of sign-in (`run_as_credential`: `"user"`, `"api_key"` or `"agent"`). If that API key is revoked or the agent sign-in ends, the schedule pauses with `last_status == "credential_revoked"`. Resume it to run as you.
 
+#### Auto-stop for unattended work
+
+When an agent or script launches instances, set a max runtime and an idle stop so a forgotten
+instance ends on its own:
+
+```python
+instance = client.instances.create(
+    name="agent-run",
+    ssh_key_id="key_abc123",
+    gpu_type="H100",
+    max_runtime_minutes=240,   # terminate after 4 hours running (5 to 10080)
+    idle_shutdown_minutes=30,  # terminate after 30 idle minutes (5 to 1440)
+)
+
+instance = client.instances.get(instance.id)
+print(instance.auto_stop_at)   # when max runtime will stop it, or None
+print(instance.stop_reason)    # None while running, else "user", "max_runtime", "idle",
+                               # "budget", "low_balance", "failed" or "system"
+```
+
+- `max_runtime_minutes`: the clock starts when the instance first becomes running. An alert goes
+  out 10 minutes before the stop.
+- `idle_shutdown_minutes`: idle means GPU utilisation under 5% with nobody connected (SSH, web terminal or editor); GPU instances only.
+
+Change the limits on a running instance, for example to extend before a long job. Max runtime
+counts from when it started, so pass the total; an argument left out keeps its value and `None`
+turns it off:
+
+```python
+client.instances.update(instance.id, max_runtime_minutes=480, idle_shutdown_minutes=None)
+```
+- Both default to `None` (no limit, idle stop off) and are left out of the request. Values out
+  of range raise `UnprocessableEntityError` (HTTP 422, `validation_error`).
+
 ### Environments
 
 ```python
@@ -226,7 +260,18 @@ client.environments.create(name="staging")
 client.environments.get("env-id")
 client.environments.update("env-id", name="production")
 client.environments.delete("env-id")
+
+env = client.environments.get("env-id")
+print(env.monthly_budget_usd)    # None when the environment has no cap
+print(env.month_to_date_usd)     # this UTC month's spend: GPU instances plus inference
+print(env.budget_remaining_usd)  # None when the environment has no cap
 ```
+
+Monthly budgets are read-only here. A workspace owner or admin sets them in the dashboard under
+Workspace settings. At 100% of the budget, launches in that environment raise
+`InsufficientCreditsError` with `code == "BUDGET_REACHED"`, running instances in it stop with
+`stop_reason == "budget"`, and inference calls with its API keys fail with
+`code == "budget_exceeded"` until the month ends or the budget is raised.
 
 ### SSH Keys
 
@@ -269,7 +314,10 @@ try:
 except NotFoundError as e:
     print(f"Not found: {e.message}")
 except InsufficientCreditsError as e:
-    print(f"Need more credits: {e.message}")
+    if e.code == "BUDGET_REACHED":
+        print(f"Environment budget reached: {e.message}")
+    else:
+        print(f"Need more credits: {e.message}")
 except RateLimitError as e:
     print(f"Rate limited: {e.message}")
 ```

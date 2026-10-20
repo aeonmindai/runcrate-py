@@ -2,7 +2,13 @@
 
 from runcrate.models.billing import Balance, Transaction, UsageSummary
 from runcrate.models.environments import Environment, EnvironmentCreate, EnvironmentUpdate
-from runcrate.models.instances import Instance, InstanceCreate, InstanceStatus, InstanceType
+from runcrate.models.instances import (
+    Instance,
+    InstanceCreate,
+    InstanceStatus,
+    InstanceType,
+    StopReason,
+)
 from runcrate.models.models import (
     ChatCompletion,
     ChatMessage,
@@ -51,6 +57,7 @@ __all__ = [
     "SSHKey",
     "SSHKeyCreate",
     "StorageVolume",
+    "StopReason",
     "Template",
     "Transcription",
     "Transaction",
