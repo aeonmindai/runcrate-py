@@ -51,8 +51,8 @@ class Instances:
                 first becomes running, and an alert goes out 10 minutes before the stop.
                 ``None`` (the default) means no limit.
             idle_shutdown_minutes: Terminate the instance once GPU utilisation stays under
-                5% with no SSH session for this many minutes (5 to 1440). ``None`` (the
-                default) turns idle stop off.
+                5% with nobody connected (SSH, web terminal or editor) for this many minutes
+                (5 to 1440). GPU instances only. ``None`` (the default) turns idle stop off.
 
         Set both when an agent or script launches instances unattended, so a forgotten
         instance stops on its own. Values out of range raise ``BadRequestError``. A launch
@@ -162,8 +162,8 @@ class AsyncInstances:
                 first becomes running, and an alert goes out 10 minutes before the stop.
                 ``None`` (the default) means no limit.
             idle_shutdown_minutes: Terminate the instance once GPU utilisation stays under
-                5% with no SSH session for this many minutes (5 to 1440). ``None`` (the
-                default) turns idle stop off.
+                5% with nobody connected (SSH, web terminal or editor) for this many minutes
+                (5 to 1440). GPU instances only. ``None`` (the default) turns idle stop off.
 
         Set both when an agent or script launches instances unattended, so a forgotten
         instance stops on its own. Values out of range raise ``BadRequestError``. A launch

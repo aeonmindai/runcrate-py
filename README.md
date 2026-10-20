@@ -202,7 +202,7 @@ print(instance.stop_reason)    # None while running, else "user", "max_runtime",
 
 - `max_runtime_minutes`: the clock starts when the instance first becomes running. An alert goes
   out 10 minutes before the stop.
-- `idle_shutdown_minutes`: idle means GPU utilisation under 5% with no SSH session.
+- `idle_shutdown_minutes`: idle means GPU utilisation under 5% with nobody connected (SSH, web terminal or editor); GPU instances only.
 - Both default to `None` (no limit, idle stop off) and are left out of the request. Values out
   of range raise `BadRequestError`.
 
