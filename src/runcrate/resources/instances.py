@@ -78,7 +78,7 @@ class Instances:
                 (5 to 1440). GPU instances only. ``None`` (the default) turns idle stop off.
 
         Set both when an agent or script launches instances unattended, so a forgotten
-        instance stops on its own. Values out of range raise ``BadRequestError``. A launch
+        instance stops on its own. Values out of range raise ``UnprocessableEntityError`` (422). A launch
         in an environment that has reached its monthly budget raises
         ``InsufficientCreditsError`` with ``code == "BUDGET_REACHED"``.
         """
@@ -130,7 +130,8 @@ class Instances:
                 support only. ``None`` turns it off.
 
         Leave an argument out to keep its value. Returns the instance with its new
-        ``auto_stop_at``. Raises ``ConflictError`` (409) when the instance is not live, has
+        ``auto_stop_at``. Out-of-range values raise ``UnprocessableEntityError`` (422);
+        ``ConflictError`` (409) means the instance is not live, has
         no GPU for idle stop, or was launched before idle stop existed.
         """
         data, _ = self._transport.request(
@@ -218,7 +219,7 @@ class AsyncInstances:
                 (5 to 1440). GPU instances only. ``None`` (the default) turns idle stop off.
 
         Set both when an agent or script launches instances unattended, so a forgotten
-        instance stops on its own. Values out of range raise ``BadRequestError``. A launch
+        instance stops on its own. Values out of range raise ``UnprocessableEntityError`` (422). A launch
         in an environment that has reached its monthly budget raises
         ``InsufficientCreditsError`` with ``code == "BUDGET_REACHED"``.
         """
@@ -270,7 +271,8 @@ class AsyncInstances:
                 support only. ``None`` turns it off.
 
         Leave an argument out to keep its value. Returns the instance with its new
-        ``auto_stop_at``. Raises ``ConflictError`` (409) when the instance is not live, has
+        ``auto_stop_at``. Out-of-range values raise ``UnprocessableEntityError`` (422);
+        ``ConflictError`` (409) means the instance is not live, has
         no GPU for idle stop, or was launched before idle stop existed.
         """
         data, _ = await self._transport.request(
