@@ -203,6 +203,14 @@ print(instance.stop_reason)    # None while running, else "user", "max_runtime",
 - `max_runtime_minutes`: the clock starts when the instance first becomes running. An alert goes
   out 10 minutes before the stop.
 - `idle_shutdown_minutes`: idle means GPU utilisation under 5% with nobody connected (SSH, web terminal or editor); GPU instances only.
+
+Change the limits on a running instance, for example to extend before a long job. Max runtime
+counts from when it started, so pass the total; an argument left out keeps its value and `None`
+turns it off:
+
+```python
+client.instances.update(instance.id, max_runtime_minutes=480, idle_shutdown_minutes=None)
+```
 - Both default to `None` (no limit, idle stop off) and are left out of the request. Values out
   of range raise `BadRequestError`.
 

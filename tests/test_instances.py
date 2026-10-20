@@ -214,6 +214,40 @@ class TestInstanceGuardrails:
         assert body["max_runtime_minutes"] == 60
         assert "idle_shutdown_minutes" not in body
 
+    def test_update_sends_only_given_limits(self, client: Runcrate, mock_api: respx.MockRouter):
+        route = mock_api.patch("/api/v1/instances/train%20run").mock(
+            return_value=httpx.Response(
+                200,
+                json={"data": {**_CREATED["data"], "max_runtime_minutes": 480,
+                               "auto_stop_at": "2026-10-20T18:00:00Z"}},
+            )
+        )
+
+        inst = client.instances.update("train run", max_runtime_minutes=480, idle_shutdown_minutes=None)
+
+        assert json.loads(route.calls[0].request.content) == {
+            "max_runtime_minutes": 480,
+            "idle_shutdown_minutes": None,
+        }
+        assert inst.max_runtime_minutes == 480
+        assert inst.auto_stop_at is not None
+
+    async def test_async_update_leaves_out_unpassed_limit(
+        self, api_key: str, base_url: str, mock_api: respx.MockRouter
+    ):
+        route = mock_api.patch("/api/v1/instances/i-1").mock(
+            return_value=httpx.Response(200, json=_CREATED)
+        )
+
+        async with AsyncRuncrate(api_key=api_key, base_url=base_url, max_retries=0) as client:
+            await client.instances.update("i-1", idle_shutdown_minutes=30)
+
+        assert json.loads(route.calls[0].request.content) == {"idle_shutdown_minutes": 30}
+
+    def test_update_needs_a_limit(self, client: Runcrate):
+        with pytest.raises(ValueError):
+            client.instances.update("i-1")
+
     def test_get_parses_guardrail_fields(self, client: Runcrate, mock_api: respx.MockRouter):
         mock_api.get("/api/v1/instances/inst-1").mock(
             return_value=httpx.Response(

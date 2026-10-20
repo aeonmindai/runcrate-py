@@ -3,8 +3,31 @@
 from __future__ import annotations
 
 from typing import Any, Optional
+from urllib.parse import quote
 
 from runcrate.models.instances import Instance, InstanceCreate, InstanceStatus, InstanceType
+
+
+class _Unchanged:
+    """Marks an ``update`` argument that was not passed, as opposed to ``None`` (turn off)."""
+
+    def __repr__(self) -> str:
+        return "UNCHANGED"
+
+
+UNCHANGED: Any = _Unchanged()
+
+
+def _auto_stop_body(max_runtime_minutes: Any, idle_shutdown_minutes: Any) -> dict[str, Any]:
+    """The PATCH body: only the limits that were passed; ``None`` is sent as null."""
+    body: dict[str, Any] = {}
+    if max_runtime_minutes is not UNCHANGED:
+        body["max_runtime_minutes"] = max_runtime_minutes
+    if idle_shutdown_minutes is not UNCHANGED:
+        body["idle_shutdown_minutes"] = idle_shutdown_minutes
+    if not body:
+        raise ValueError("Pass max_runtime_minutes, idle_shutdown_minutes or both (None turns one off).")
+    return body
 
 
 class Instances:
@@ -86,6 +109,35 @@ class Instances:
     def get(self, id: str) -> Instance:
         data, _ = self._transport.request(
             "GET", f"/api/v1/instances/{id}", cast_to=Instance
+        )
+        return data
+
+    def update(
+        self,
+        id: str,
+        *,
+        max_runtime_minutes: Optional[int] = UNCHANGED,
+        idle_shutdown_minutes: Optional[int] = UNCHANGED,
+    ) -> Instance:
+        """Change a starting or running instance's auto stop, by id or unique name.
+
+        Args:
+            max_runtime_minutes: Total minutes the instance may run, counted from when it
+                started running (5 to 10080). A change never stops it sooner than 2 minutes
+                from now. Extend it before a long job. ``None`` turns it off.
+            idle_shutdown_minutes: Minutes of GPU utilisation under 5% with nobody connected
+                before termination (5 to 1440). GPU instances launched with idle stop
+                support only. ``None`` turns it off.
+
+        Leave an argument out to keep its value. Returns the instance with its new
+        ``auto_stop_at``. Raises ``ConflictError`` (409) when the instance is not live, has
+        no GPU for idle stop, or was launched before idle stop existed.
+        """
+        data, _ = self._transport.request(
+            "PATCH",
+            f"/api/v1/instances/{quote(id, safe='')}",
+            json=_auto_stop_body(max_runtime_minutes, idle_shutdown_minutes),
+            cast_to=Instance,
         )
         return data
 
@@ -197,6 +249,35 @@ class AsyncInstances:
     async def get(self, id: str) -> Instance:
         data, _ = await self._transport.request(
             "GET", f"/api/v1/instances/{id}", cast_to=Instance
+        )
+        return data
+
+    async def update(
+        self,
+        id: str,
+        *,
+        max_runtime_minutes: Optional[int] = UNCHANGED,
+        idle_shutdown_minutes: Optional[int] = UNCHANGED,
+    ) -> Instance:
+        """Change a starting or running instance's auto stop, by id or unique name.
+
+        Args:
+            max_runtime_minutes: Total minutes the instance may run, counted from when it
+                started running (5 to 10080). A change never stops it sooner than 2 minutes
+                from now. Extend it before a long job. ``None`` turns it off.
+            idle_shutdown_minutes: Minutes of GPU utilisation under 5% with nobody connected
+                before termination (5 to 1440). GPU instances launched with idle stop
+                support only. ``None`` turns it off.
+
+        Leave an argument out to keep its value. Returns the instance with its new
+        ``auto_stop_at``. Raises ``ConflictError`` (409) when the instance is not live, has
+        no GPU for idle stop, or was launched before idle stop existed.
+        """
+        data, _ = await self._transport.request(
+            "PATCH",
+            f"/api/v1/instances/{quote(id, safe='')}",
+            json=_auto_stop_body(max_runtime_minutes, idle_shutdown_minutes),
+            cast_to=Instance,
         )
         return data
 
