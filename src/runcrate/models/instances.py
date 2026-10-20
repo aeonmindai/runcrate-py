@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict
+
+StopReason = Literal["user", "max_runtime", "idle", "budget", "low_balance", "failed", "system"]
 
 
 class Instance(BaseModel):
@@ -26,6 +28,10 @@ class Instance(BaseModel):
     deployed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    max_runtime_minutes: Optional[int] = None
+    idle_shutdown_minutes: Optional[int] = None
+    auto_stop_at: Optional[datetime] = None
+    stop_reason: Optional[StopReason] = None
 
 
 class InstanceCreate(BaseModel):
@@ -44,6 +50,8 @@ class InstanceCreate(BaseModel):
     storage_id: Optional[str] = None
     launch_script: Optional[str] = None
     launch_script_base64: Optional[str] = None
+    max_runtime_minutes: Optional[int] = None
+    idle_shutdown_minutes: Optional[int] = None
 
 
 class InstanceStatus(BaseModel):

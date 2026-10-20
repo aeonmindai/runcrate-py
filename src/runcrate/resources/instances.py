@@ -40,7 +40,25 @@ class Instances:
         storage_id: Optional[str] = None,
         launch_script: Optional[str] = None,
         launch_script_base64: Optional[str] = None,
+        max_runtime_minutes: Optional[int] = None,
+        idle_shutdown_minutes: Optional[int] = None,
     ) -> Instance:
+        """Launch a GPU instance.
+
+        Args:
+            max_runtime_minutes: Terminate the instance automatically after it has been
+                running this many minutes (5 to 10080). The clock starts when the instance
+                first becomes running, and an alert goes out 10 minutes before the stop.
+                ``None`` (the default) means no limit.
+            idle_shutdown_minutes: Terminate the instance once GPU utilisation stays under
+                5% with no SSH session for this many minutes (5 to 1440). ``None`` (the
+                default) turns idle stop off.
+
+        Set both when an agent or script launches instances unattended, so a forgotten
+        instance stops on its own. Values out of range raise ``BadRequestError``. A launch
+        in an environment that has reached its monthly budget raises
+        ``InsufficientCreditsError`` with ``code == "BUDGET_REACHED"``.
+        """
         body = InstanceCreate(
             name=name,
             ssh_key_id=ssh_key_id,
@@ -57,6 +75,8 @@ class Instances:
             storage_id=storage_id,
             launch_script=launch_script,
             launch_script_base64=launch_script_base64,
+            max_runtime_minutes=max_runtime_minutes,
+            idle_shutdown_minutes=idle_shutdown_minutes,
         ).model_dump(exclude_none=True)
         data, _ = self._transport.request(
             "POST", "/api/v1/instances", json=body, cast_to=Instance
@@ -131,7 +151,25 @@ class AsyncInstances:
         storage_id: Optional[str] = None,
         launch_script: Optional[str] = None,
         launch_script_base64: Optional[str] = None,
+        max_runtime_minutes: Optional[int] = None,
+        idle_shutdown_minutes: Optional[int] = None,
     ) -> Instance:
+        """Launch a GPU instance.
+
+        Args:
+            max_runtime_minutes: Terminate the instance automatically after it has been
+                running this many minutes (5 to 10080). The clock starts when the instance
+                first becomes running, and an alert goes out 10 minutes before the stop.
+                ``None`` (the default) means no limit.
+            idle_shutdown_minutes: Terminate the instance once GPU utilisation stays under
+                5% with no SSH session for this many minutes (5 to 1440). ``None`` (the
+                default) turns idle stop off.
+
+        Set both when an agent or script launches instances unattended, so a forgotten
+        instance stops on its own. Values out of range raise ``BadRequestError``. A launch
+        in an environment that has reached its monthly budget raises
+        ``InsufficientCreditsError`` with ``code == "BUDGET_REACHED"``.
+        """
         body = InstanceCreate(
             name=name,
             ssh_key_id=ssh_key_id,
@@ -148,6 +186,8 @@ class AsyncInstances:
             storage_id=storage_id,
             launch_script=launch_script,
             launch_script_base64=launch_script_base64,
+            max_runtime_minutes=max_runtime_minutes,
+            idle_shutdown_minutes=idle_shutdown_minutes,
         ).model_dump(exclude_none=True)
         data, _ = await self._transport.request(
             "POST", "/api/v1/instances", json=body, cast_to=Instance
