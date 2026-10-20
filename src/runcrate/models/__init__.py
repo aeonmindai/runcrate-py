@@ -11,6 +11,15 @@ from runcrate.models.models import (
     Transcription,
     VideoJob,
 )
+from runcrate.models.schedules import (
+    Schedule,
+    ScheduleCreate,
+    ScheduleKind,
+    ScheduleOverlap,
+    ScheduleRun,
+    ScheduleRunStatus,
+    ScheduleUpdate,
+)
 from runcrate.models.shared import ListMeta
 from runcrate.models.ssh_keys import SSHKey, SSHKeyCreate
 from runcrate.models.storage import StorageVolume
@@ -30,6 +39,13 @@ __all__ = [
     "InstanceStatus",
     "InstanceType",
     "ListMeta",
+    "Schedule",
+    "ScheduleCreate",
+    "ScheduleKind",
+    "ScheduleOverlap",
+    "ScheduleRun",
+    "ScheduleRunStatus",
+    "ScheduleUpdate",
     "SSHKey",
     "SSHKeyCreate",
     "StorageVolume",
