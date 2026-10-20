@@ -16,6 +16,9 @@ class Environment(BaseModel):
     is_default: Optional[bool] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    monthly_budget_usd: Optional[float] = None
+    month_to_date_usd: Optional[float] = None
+    budget_remaining_usd: Optional[float] = None
 
 
 class EnvironmentCreate(BaseModel):

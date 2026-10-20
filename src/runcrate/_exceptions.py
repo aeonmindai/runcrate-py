@@ -46,7 +46,11 @@ class AuthenticationError(ApiError):
 
 
 class InsufficientCreditsError(ApiError):
-    """402 - Not enough credits to perform operation."""
+    """402 - Not enough credits, or the environment's monthly budget is reached.
+
+    Check ``code`` to tell them apart: ``"BUDGET_REACHED"`` when a launch is blocked by the
+    environment budget, ``"budget_exceeded"`` when an inference call is.
+    """
 
 
 class PermissionDeniedError(ApiError):

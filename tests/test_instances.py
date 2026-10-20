@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
+
 import httpx
+import pytest
 import respx
 
-from runcrate import Runcrate, NotFoundError
+from runcrate import AsyncRuncrate, InsufficientCreditsError, NotFoundError, Runcrate
 
 
 class TestInstances:
@@ -160,3 +164,144 @@ class TestInstances:
             assert e.status_code == 404
             assert e.code == "not_found"
             assert "not found" in e.message.lower()
+
+
+_CREATED = {"data": {"id": "inst-new", "name": "agent-run", "status": "deploying"}}
+
+
+class TestInstanceGuardrails:
+    def test_create_sends_guardrails(self, client: Runcrate, mock_api: respx.MockRouter):
+        route = mock_api.post("/api/v1/instances").mock(
+            return_value=httpx.Response(201, json=_CREATED)
+        )
+
+        client.instances.create(
+            name="agent-run",
+            ssh_key_id="key-1",
+            gpu_type="H100",
+            max_runtime_minutes=240,
+            idle_shutdown_minutes=30,
+        )
+
+        body = json.loads(route.calls[0].request.content)
+        assert body["max_runtime_minutes"] == 240
+        assert body["idle_shutdown_minutes"] == 30
+
+    def test_create_omits_unset_guardrails(self, client: Runcrate, mock_api: respx.MockRouter):
+        route = mock_api.post("/api/v1/instances").mock(
+            return_value=httpx.Response(201, json=_CREATED)
+        )
+
+        client.instances.create(name="agent-run", ssh_key_id="key-1", gpu_type="H100")
+
+        body = json.loads(route.calls[0].request.content)
+        assert "max_runtime_minutes" not in body
+        assert "idle_shutdown_minutes" not in body
+
+    async def test_async_create_sends_guardrails(
+        self, api_key: str, base_url: str, mock_api: respx.MockRouter
+    ):
+        route = mock_api.post("/api/v1/instances").mock(
+            return_value=httpx.Response(201, json=_CREATED)
+        )
+
+        async with AsyncRuncrate(api_key=api_key, base_url=base_url, max_retries=0) as client:
+            await client.instances.create(
+                name="agent-run", ssh_key_id="key-1", max_runtime_minutes=60
+            )
+
+        body = json.loads(route.calls[0].request.content)
+        assert body["max_runtime_minutes"] == 60
+        assert "idle_shutdown_minutes" not in body
+
+    def test_update_sends_only_given_limits(self, client: Runcrate, mock_api: respx.MockRouter):
+        route = mock_api.patch("/api/v1/instances/train%20run").mock(
+            return_value=httpx.Response(
+                200,
+                json={"data": {**_CREATED["data"], "max_runtime_minutes": 480,
+                               "auto_stop_at": "2026-10-20T18:00:00Z"}},
+            )
+        )
+
+        inst = client.instances.update("train run", max_runtime_minutes=480, idle_shutdown_minutes=None)
+
+        assert json.loads(route.calls[0].request.content) == {
+            "max_runtime_minutes": 480,
+            "idle_shutdown_minutes": None,
+        }
+        assert inst.max_runtime_minutes == 480
+        assert inst.auto_stop_at is not None
+
+    async def test_async_update_leaves_out_unpassed_limit(
+        self, api_key: str, base_url: str, mock_api: respx.MockRouter
+    ):
+        route = mock_api.patch("/api/v1/instances/i-1").mock(
+            return_value=httpx.Response(200, json=_CREATED)
+        )
+
+        async with AsyncRuncrate(api_key=api_key, base_url=base_url, max_retries=0) as client:
+            await client.instances.update("i-1", idle_shutdown_minutes=30)
+
+        assert json.loads(route.calls[0].request.content) == {"idle_shutdown_minutes": 30}
+
+    def test_update_needs_a_limit(self, client: Runcrate):
+        with pytest.raises(ValueError):
+            client.instances.update("i-1")
+
+    def test_get_parses_guardrail_fields(self, client: Runcrate, mock_api: respx.MockRouter):
+        mock_api.get("/api/v1/instances/inst-1").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "id": "inst-1",
+                        "name": "agent-run",
+                        "status": "stopped",
+                        "max_runtime_minutes": 240,
+                        "idle_shutdown_minutes": 30,
+                        "auto_stop_at": "2026-10-20T16:00:00Z",
+                        "stop_reason": "idle",
+                    }
+                },
+            )
+        )
+
+        instance = client.instances.get("inst-1")
+        assert instance.max_runtime_minutes == 240
+        assert instance.idle_shutdown_minutes == 30
+        assert instance.auto_stop_at == datetime(2026, 10, 20, 16, 0, tzinfo=timezone.utc)
+        assert instance.stop_reason == "idle"
+
+    def test_get_parses_payload_without_guardrail_fields(
+        self, client: Runcrate, mock_api: respx.MockRouter
+    ):
+        mock_api.get("/api/v1/instances/inst-1").mock(
+            return_value=httpx.Response(
+                200, json={"data": {"id": "inst-1", "name": "old", "status": "running"}}
+            )
+        )
+
+        instance = client.instances.get("inst-1")
+        assert instance.max_runtime_minutes is None
+        assert instance.idle_shutdown_minutes is None
+        assert instance.auto_stop_at is None
+        assert instance.stop_reason is None
+
+    def test_budget_reached_surfaces_code(self, client: Runcrate, mock_api: respx.MockRouter):
+        mock_api.post("/api/v1/instances").mock(
+            return_value=httpx.Response(
+                402,
+                json={
+                    "error": {
+                        "code": "BUDGET_REACHED",
+                        "message": "This environment reached its $500.00 monthly budget.",
+                    }
+                },
+            )
+        )
+
+        with pytest.raises(InsufficientCreditsError) as exc:
+            client.instances.create(name="agent-run", ssh_key_id="key-1")
+        assert exc.value.status_code == 402
+        assert exc.value.code == "BUDGET_REACHED"
+        assert "monthly budget" in exc.value.message
