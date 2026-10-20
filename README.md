@@ -212,7 +212,7 @@ turns it off:
 client.instances.update(instance.id, max_runtime_minutes=480, idle_shutdown_minutes=None)
 ```
 - Both default to `None` (no limit, idle stop off) and are left out of the request. Values out
-  of range raise `BadRequestError`.
+  of range raise `UnprocessableEntityError` (HTTP 422, `validation_error`).
 
 ### Environments
 
