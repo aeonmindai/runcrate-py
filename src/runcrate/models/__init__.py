@@ -14,6 +14,7 @@ from runcrate.models.models import (
 from runcrate.models.schedules import (
     Schedule,
     ScheduleCreate,
+    ScheduleCredential,
     ScheduleKind,
     ScheduleOverlap,
     ScheduleRun,
@@ -41,6 +42,7 @@ __all__ = [
     "ListMeta",
     "Schedule",
     "ScheduleCreate",
+    "ScheduleCredential",
     "ScheduleKind",
     "ScheduleOverlap",
     "ScheduleRun",

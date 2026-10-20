@@ -214,7 +214,9 @@ run = client.schedules.run_now(nightly.id)                # launch now; run.job 
 client.schedules.delete(nightly.id)
 ```
 
-Recurring runs must be at least 15 minutes apart, `run_at` can be up to 365 days ahead, and a workspace holds at most 50 schedules. `overlap="skip"` (the default) skips a run while the previous one is still live; `overlap="allow"` starts it anyway. `run_now` raises `InsufficientCreditsError` with `code == "BUDGET_REACHED"` when the environment's monthly budget is spent.
+Recurring runs must be at least 15 minutes apart, `run_at` can be up to 365 days ahead, and you can have at most 50 schedules per environment and 200 per workspace. `overlap="skip"` (the default) skips a run while the previous one is still live; `overlap="allow"` starts it anyway. `run_now` raises `InsufficientCreditsError` with `code == "BUDGET_REACHED"` when the environment's monthly budget is spent.
+
+Each run launches as `schedule.run_as`, the person who created the schedule or last changed its spec or timing or resumed it, using the same kind of sign-in (`run_as_credential`: `"user"`, `"api_key"` or `"agent"`). If that API key is revoked or the agent sign-in ends, the schedule pauses with `last_status == "credential_revoked"`. Resume it to run as you.
 
 ### Environments
 

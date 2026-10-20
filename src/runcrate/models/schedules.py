@@ -11,7 +11,15 @@ from runcrate.models.instances import Instance
 
 ScheduleKind = Literal["instance", "job"]
 ScheduleOverlap = Literal["skip", "allow"]
-ScheduleRunStatus = Literal["launched", "failed", "skipped_budget", "skipped_overlap", "no_access"]
+ScheduleRunStatus = Literal[
+    "launched",
+    "failed",
+    "skipped_budget",
+    "skipped_overlap",
+    "no_access",
+    "credential_revoked",
+]
+ScheduleCredential = Literal["user", "api_key", "agent"]
 
 
 class Schedule(BaseModel):
@@ -24,6 +32,10 @@ class Schedule(BaseModel):
     kind: ScheduleKind
     environment_id: Optional[str] = None
     created_by: Optional[str] = None
+    run_as: Optional[str] = None
+    """The user each run launches as: whoever created it, or last changed its spec or timing, or
+    resumed it."""
+    run_as_credential: Optional[ScheduleCredential] = None
     spec: dict[str, Any]
     max_runtime_minutes: Optional[int] = None
     run_at: Optional[datetime] = None

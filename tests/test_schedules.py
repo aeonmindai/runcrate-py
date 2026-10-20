@@ -25,6 +25,8 @@ _SCHEDULE = {
     "kind": "job",
     "environment_id": "env-1",
     "created_by": "user-1",
+    "run_as": "user-1",
+    "run_as_credential": "api_key",
     "spec": {**_JOB_SPEC, "env_keys": ["HF_TOKEN"]},
     "max_runtime_minutes": 120,
     "run_at": None,
@@ -156,7 +158,7 @@ class TestCreate:
         mock_api.post("/api/v1/schedules").mock(
             return_value=httpx.Response(
                 409,
-                json={"error": {"code": "conflict", "message": "At most 50 schedules."}},
+                json={"error": {"code": "conflict", "message": "At most 50 schedules here."}},
             )
         )
 
@@ -187,6 +189,29 @@ class TestReadAndChange:
         assert schedules[0].run_at == datetime(2026, 10, 22, 9, 0, tzinfo=timezone.utc)
         assert schedules[0].last_status == "skipped_budget"
         assert schedules[0].run_count == 1
+
+    def test_parses_run_as_and_credential_revoked(
+        self, client: Runcrate, mock_api: respx.MockRouter
+    ):
+        paused = {
+            **_SCHEDULE,
+            "run_as": "user-2",
+            "run_as_credential": "agent",
+            "enabled": False,
+            "next_run_at": None,
+            "last_status": "credential_revoked",
+            "last_error": "The agent sign-in this schedule runs with has ended.",
+        }
+        mock_api.get("/api/v1/schedules/sch-1").mock(
+            return_value=httpx.Response(200, json={"data": paused})
+        )
+
+        schedule = client.schedules.get("sch-1")
+
+        assert schedule.run_as == "user-2"
+        assert schedule.run_as_credential == "agent"
+        assert schedule.last_status == "credential_revoked"
+        assert schedule.enabled is False
 
     def test_get_quotes_the_id(self, client: Runcrate, mock_api: respx.MockRouter):
         route = mock_api.get("/api/v1/schedules/a%2Fb").mock(
