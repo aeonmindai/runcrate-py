@@ -180,6 +180,44 @@ client.instances.get_status("instance-id")
 client.instances.list_types(gpu_type="A100", region="us-east")
 ```
 
+### Schedules
+
+Start an instance or a job later: once at a time (`run_at`), or on a recurring 5-field `cron` read in an IANA `timezone`. A schedule starts within about 2 minutes of its time, as you, in the environment it was created in. `spec` is the create body of that kind and must set `max_runtime_minutes`.
+
+```python
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+# Every night at 02:00 London time
+nightly = client.schedules.create(
+    kind="job",
+    cron="0 2 * * *",
+    timezone="Europe/London",
+    name="nightly-train",
+    spec={"command": "python train.py", "gpu_type": "H100", "max_runtime_minutes": 120},
+)
+print(nightly.next_run_at)
+
+# Once, tomorrow morning. run_at must carry a timezone: a naive datetime raises ValueError.
+client.schedules.create(
+    kind="instance",
+    run_at=datetime(2026, 10, 21, 9, 0, tzinfo=ZoneInfo("Europe/London")),
+    spec={"name": "eval-box", "gpu_type": "A100", "ssh_key_id": "key_abc123", "max_runtime_minutes": 60},
+)
+
+client.schedules.list()
+client.schedules.get(nightly.id)
+client.schedules.update(nightly.id, enabled=False)        # pause
+client.schedules.update(nightly.id, enabled=True)         # resume from the next occurrence
+client.schedules.update(nightly.id, cron="0 3 * * 1-5")   # retime
+run = client.schedules.run_now(nightly.id)                # launch now; run.job or run.instance
+client.schedules.delete(nightly.id)
+```
+
+Recurring runs must be at least 15 minutes apart, `run_at` can be up to 365 days ahead, and you can have at most 50 schedules per environment and 200 per workspace. `overlap="skip"` (the default) skips a run while the previous one is still live; `overlap="allow"` starts it anyway. `run_now` raises `InsufficientCreditsError` with `code == "BUDGET_REACHED"` when the environment's monthly budget is spent.
+
+Each run launches as `schedule.run_as`, the person who created the schedule or last changed its spec or timing or resumed it, using the same kind of sign-in (`run_as_credential`: `"user"`, `"api_key"` or `"agent"`). If that API key is revoked or the agent sign-in ends, the schedule pauses with `last_status == "credential_revoked"`. Resume it to run as you.
+
 #### Auto-stop for unattended work
 
 When an agent or script launches instances, set a max runtime and an idle stop so a forgotten

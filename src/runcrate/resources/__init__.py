@@ -4,6 +4,7 @@ from runcrate.resources.billing import AsyncBilling, Billing
 from runcrate.resources.environments import AsyncEnvironments, Environments
 from runcrate.resources.instances import AsyncInstances, Instances
 from runcrate.resources.models import AsyncModels, Models
+from runcrate.resources.schedules import AsyncSchedules, Schedules
 from runcrate.resources.ssh_keys import AsyncSSHKeys, SSHKeys
 from runcrate.resources.storage import AsyncStorage, Storage
 from runcrate.resources.templates import AsyncTemplates, Templates
@@ -14,6 +15,7 @@ __all__ = [
     "AsyncInstances",
     "AsyncModels",
     "AsyncSSHKeys",
+    "AsyncSchedules",
     "AsyncStorage",
     "AsyncTemplates",
     "Billing",
@@ -21,6 +23,7 @@ __all__ = [
     "Instances",
     "Models",
     "SSHKeys",
+    "Schedules",
     "Storage",
     "Templates",
 ]
