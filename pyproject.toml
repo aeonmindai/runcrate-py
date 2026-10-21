@@ -16,7 +16,7 @@ email = "support@runcrate.ai"
 
 [project.urls]
 Homepage = "https://runcrate.ai"
-Repository = "https://github.com/aeonmindai/runcrate-py"
+Repository = "https://github.com/runcrateai/runcrate-py"
 Documentation = "https://runcrate.ai/docs"
 
 [project.optional-dependencies]
