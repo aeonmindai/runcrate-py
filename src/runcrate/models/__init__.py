@@ -27,6 +27,7 @@ from runcrate.models.schedules import (
     ScheduleRunStatus,
     ScheduleUpdate,
 )
+from runcrate.models.secrets import Secret
 from runcrate.models.shared import ListMeta
 from runcrate.models.ssh_keys import SSHKey, SSHKeyCreate
 from runcrate.models.storage import StorageVolume
@@ -54,6 +55,7 @@ __all__ = [
     "ScheduleRun",
     "ScheduleRunStatus",
     "ScheduleUpdate",
+    "Secret",
     "SSHKey",
     "SSHKeyCreate",
     "StorageVolume",

@@ -13,6 +13,7 @@ from runcrate.resources.environments import AsyncEnvironments, Environments
 from runcrate.resources.instances import AsyncInstances, Instances
 from runcrate.resources.models import AsyncModels, Models
 from runcrate.resources.schedules import AsyncSchedules, Schedules
+from runcrate.resources.secrets import AsyncSecrets, Secrets
 from runcrate.resources.ssh_keys import AsyncSSHKeys, SSHKeys
 from runcrate.resources.storage import AsyncStorage, Storage
 from runcrate.resources.templates import AsyncTemplates, Templates
@@ -240,6 +241,7 @@ class Runcrate:
         self.schedules = Schedules(self._transport)
         self.environments = Environments(self._transport)
         self.ssh_keys = SSHKeys(self._transport)
+        self.secrets = Secrets(self._transport)
         self.storage = Storage(self._transport)
         self.billing = Billing(self._transport)
         self.templates = Templates(self._transport)
@@ -304,6 +306,7 @@ class AsyncRuncrate:
         self.schedules = AsyncSchedules(self._transport)
         self.environments = AsyncEnvironments(self._transport)
         self.ssh_keys = AsyncSSHKeys(self._transport)
+        self.secrets = AsyncSecrets(self._transport)
         self.storage = AsyncStorage(self._transport)
         self.billing = AsyncBilling(self._transport)
         self.templates = AsyncTemplates(self._transport)
