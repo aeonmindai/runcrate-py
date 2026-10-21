@@ -23,11 +23,16 @@ _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 _BASE_DELAY = 0.5
 _MAX_DELAY = 30.0
 _JITTER_FACTOR = 0.25
+# The longest a Retry-After header is honoured, in seconds: a server asking for more is capped.
+_MAX_RETRY_AFTER = 60.0
+# Error codes never retried, whatever their status: the same request fails the same way.
+# launch_refused (502): the machine was refused for the request itself, not for capacity.
+_NON_RETRYABLE_CODES = {"launch_refused"}
 
 
 def _backoff_delay(attempt: int, retry_after: Optional[float] = None) -> float:
     if retry_after is not None:
-        return retry_after
+        return min(max(retry_after, 0.0), _MAX_RETRY_AFTER)
     delay = min(_BASE_DELAY * (2**attempt), _MAX_DELAY)
     jitter = delay * _JITTER_FACTOR * random.random()
     return delay + jitter
@@ -41,6 +46,27 @@ def _parse_retry_after(response: httpx.Response) -> Optional[float]:
         return float(value)
     except ValueError:
         return None
+
+
+def _error_code(response: httpx.Response) -> Optional[str]:
+    """The API error code of a JSON error response, if it has one."""
+    if "application/json" not in response.headers.get("content-type", ""):
+        return None
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    error = body.get("error") if isinstance(body, dict) else None
+    code = error.get("code") if isinstance(error, dict) else None
+    return code if isinstance(code, str) else None
+
+
+def _should_retry(response: httpx.Response, attempt: int, max_retries: int) -> bool:
+    return (
+        response.status_code in _RETRYABLE_STATUS_CODES
+        and attempt < max_retries
+        and _error_code(response) not in _NON_RETRYABLE_CODES
+    )
 
 
 def _parse_response(response: httpx.Response, cast_to: Optional[Type[T]]) -> Any:
@@ -134,7 +160,7 @@ class SyncTransport:
                     continue
                 raise last_exc from e
 
-            if response.status_code in _RETRYABLE_STATUS_CODES and attempt < self._config.max_retries:
+            if _should_retry(response, attempt, self._config.max_retries):
                 retry_after = _parse_retry_after(response)
                 time.sleep(_backoff_delay(attempt, retry_after))
                 continue
@@ -198,7 +224,7 @@ class AsyncTransport:
                     continue
                 raise last_exc from e
 
-            if response.status_code in _RETRYABLE_STATUS_CODES and attempt < self._config.max_retries:
+            if _should_retry(response, attempt, self._config.max_retries):
                 retry_after = _parse_retry_after(response)
                 await asyncio.sleep(_backoff_delay(attempt, retry_after))
                 continue

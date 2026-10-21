@@ -68,7 +68,7 @@ client = Runcrate(
     base_url="https://runcrate.ai",               # infra API (default)
     inference_url="https://api.runcrate.ai",      # model inference API (default)
     timeout=30.0,                                 # request timeout in seconds
-    max_retries=3,                                # retry on 429/5xx with exponential backoff
+    max_retries=3,                                # retry on 429/5xx with exponential backoff (Retry-After honoured up to 60s; never a 502 launch_refused)
 )
 ```
 
