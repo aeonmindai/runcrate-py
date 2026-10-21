@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Optional
 from urllib.parse import quote
 
+from runcrate._transport import LAUNCH_TIMEOUT, new_idempotency_key
 from runcrate.models.instances import Instance, InstanceCreate, InstanceStatus, InstanceType
 
 
@@ -81,6 +82,10 @@ class Instances:
         instance stops on its own. Values out of range raise ``UnprocessableEntityError`` (422). A launch
         in an environment that has reached its monthly budget raises
         ``InsufficientCreditsError`` with ``code == "BUDGET_REACHED"``.
+
+        A launch is never sent twice once it may have reached Runcrate: a timeout or a lost
+        connection raises (check ``instances.list()`` before launching again). Only a 429 or 503,
+        which say nothing was launched, and a connection that never opened are retried.
         """
         body = InstanceCreate(
             name=name,
@@ -102,7 +107,13 @@ class Instances:
             idle_shutdown_minutes=idle_shutdown_minutes,
         ).model_dump(exclude_none=True)
         data, _ = self._transport.request(
-            "POST", "/api/v1/instances", json=body, cast_to=Instance
+            "POST",
+            "/api/v1/instances",
+            json=body,
+            cast_to=Instance,
+            # Not deduplicated by the server: never sent again once it may have arrived.
+            idempotency_key=new_idempotency_key(),
+            min_timeout=LAUNCH_TIMEOUT,
         )
         return data
 
@@ -222,6 +233,10 @@ class AsyncInstances:
         instance stops on its own. Values out of range raise ``UnprocessableEntityError`` (422). A launch
         in an environment that has reached its monthly budget raises
         ``InsufficientCreditsError`` with ``code == "BUDGET_REACHED"``.
+
+        A launch is never sent twice once it may have reached Runcrate: a timeout or a lost
+        connection raises (check ``instances.list()`` before launching again). Only a 429 or 503,
+        which say nothing was launched, and a connection that never opened are retried.
         """
         body = InstanceCreate(
             name=name,
@@ -243,7 +258,13 @@ class AsyncInstances:
             idle_shutdown_minutes=idle_shutdown_minutes,
         ).model_dump(exclude_none=True)
         data, _ = await self._transport.request(
-            "POST", "/api/v1/instances", json=body, cast_to=Instance
+            "POST",
+            "/api/v1/instances",
+            json=body,
+            cast_to=Instance,
+            # Not deduplicated by the server: never sent again once it may have arrived.
+            idempotency_key=new_idempotency_key(),
+            min_timeout=LAUNCH_TIMEOUT,
         )
         return data
 
