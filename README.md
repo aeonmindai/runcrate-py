@@ -273,6 +273,15 @@ Workspace settings. At 100% of the budget, launches in that environment raise
 `stop_reason == "budget"`, and inference calls with its API keys fail with
 `code == "budget_exceeded"` until the month ends or the budget is raised.
 
+### Secrets
+
+Secrets are environment variables every instance and job launched in an environment gets, such as `HF_TOKEN`. The SDK lists their names, never their values; a workspace owner or manager sets them in the [dashboard](https://runcrate.ai/dashboard/settings/secrets). A value passed for one launch (`env_vars`) wins over the secret of the same name.
+
+```python
+secrets = client.secrets.list()  # [Secret(key="HF_TOKEN", sensitive=False, updated_at=...)]
+has_token = any(s.key == "HF_TOKEN" for s in secrets)
+```
+
 ### SSH Keys
 
 ```python
