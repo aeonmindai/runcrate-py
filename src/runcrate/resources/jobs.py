@@ -8,6 +8,7 @@ starting a second one.
 from __future__ import annotations
 
 import asyncio
+import gzip
 import hashlib
 import io
 import os
@@ -164,7 +165,8 @@ def _page(data: list[Job], meta: Any) -> PaginatedResponse[Job]:
 
 
 def _code_archive(source: Union[str, os.PathLike[str], bytes]) -> bytes:
-    """The tar.gz to upload: given bytes, a .tar.gz file, or a directory packed here."""
+    """The tar.gz to upload: given bytes, a .tar.gz file, or a directory packed here (regular
+    files only, byte for byte the same for the same files)."""
     if isinstance(source, bytes):
         return source
     path = Path(source)
@@ -172,13 +174,23 @@ def _code_archive(source: Union[str, os.PathLike[str], bytes]) -> bytes:
         return path.read_bytes()
     if not path.is_dir():
         raise ValueError(f"{path} is neither a directory nor a .tar.gz file")
+    # Only names, modes and contents go in (no owner, times or file name in the gzip header), so
+    # the same files make the same bytes and the same sha256, which the upload dedupes on.
     buffer = io.BytesIO()
-    with tarfile.open(fileobj=buffer, mode="w:gz") as archive:
-        for root, dirs, files in os.walk(path):
-            dirs[:] = sorted(d for d in dirs if d not in _SKIPPED_DIRS)
-            for name in sorted(files):
-                full = Path(root) / name
-                archive.add(full, arcname=str(full.relative_to(path)))
+    with gzip.GzipFile(filename="", fileobj=buffer, mode="wb", mtime=0) as gz:
+        with tarfile.open(fileobj=gz, mode="w", format=tarfile.PAX_FORMAT) as archive:
+            for root, dirs, files in os.walk(path):
+                dirs[:] = sorted(d for d in dirs if d not in _SKIPPED_DIRS)
+                for name in sorted(files):
+                    full = Path(root) / name
+                    if full.is_symlink() or not full.is_file():
+                        continue
+                    info = tarfile.TarInfo(full.relative_to(path).as_posix())
+                    info.size = full.stat().st_size
+                    info.mode = full.stat().st_mode & 0o777
+                    info.mtime = 0
+                    with full.open("rb") as file:
+                        archive.addfile(info, file)
     return buffer.getvalue()
 
 

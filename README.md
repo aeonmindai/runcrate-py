@@ -75,7 +75,7 @@ client = Runcrate(
 Reads, updates and deletes are retried on 429, 5xx, timeouts and lost connections. A request that creates or launches something is never sent twice by accident:
 
 - Job submits and reruns send an `Idempotency-Key`, which the server honours, so they are retried like reads.
-- Instance, schedule and volume creates, and `schedules.run_now`, also send an `Idempotency-Key`, but those routes do not deduplicate yet. Once such a request may have reached Runcrate (a timeout, a lost connection, a 500, 502 or 504) it is not sent again and the error is raised: check `instances.list()` before launching again. Only a 429 or 503, which say nothing was launched, and a connection that never opened are retried.
+- Instance, schedule and volume creates also send an `Idempotency-Key`, but those routes do not deduplicate it yet; `schedules.run_now` sends none. Once one of these, or a run-now, may have reached Runcrate (a timeout, a lost connection, a 500, 502 or 504) it is not sent again and the error is raised: check `instances.list()` before launching again. Only a 429 or 503, which say nothing was launched, and a connection that never opened are retried.
 - A launch waits at least 75 seconds (a job submit 135) for its answer, whatever `timeout` is, so the client does not give up while the server is still launching.
 
 ## Model Inference
@@ -283,7 +283,7 @@ done = client.jobs.wait(job.id, timeout=3600)   # polls with backoff; JobWaitTim
 print(done.status, done.exit_code, done.cost_usd)
 
 for artifact in client.jobs.artifacts.list(job.id):
-    client.jobs.artifacts.download(job.id, artifact.path, to=f"out-{artifact.path.replace('/', '_')}")
+    client.jobs.artifacts.download(job.id, artifact.path, to=os.path.basename(artifact.path))
 ```
 
 Send local code instead of a repository: `upload = client.jobs.uploads.upload("./my-project")` packs the directory (without `.git`, `__pycache__` and `node_modules`) and sends it; run with `code={"upload_id": upload.upload_id}` within 24 hours.

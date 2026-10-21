@@ -371,6 +371,27 @@ class TestFiles:
         assert body == {"bytes": len(sent), "sha256": hashlib.sha256(sent).hexdigest()}
         assert put.call_count == 1
 
+    def test_packing_the_same_files_twice_makes_the_same_bytes(self, tmp_path: Path) -> None:
+        import os
+        import time as _time
+
+        from runcrate.resources.jobs import _code_archive
+
+        (tmp_path / "pkg").mkdir()
+        (tmp_path / "train.py").write_text("print(1)\n")
+        (tmp_path / "train.py").chmod(0o755)
+        (tmp_path / "pkg" / "u.py").write_text("x = 1\n")
+        first = _code_archive(tmp_path)
+        later = _time.time() + 3600
+        os.utime(tmp_path / "train.py", (later, later))
+        os.utime(tmp_path / "pkg", (later, later))
+        _time.sleep(1.1)  # a gzip header with the time in it would differ now
+        assert _code_archive(tmp_path) == first
+        with tarfile.open(fileobj=io.BytesIO(first), mode="r:gz") as archive:
+            members = archive.getmembers()
+        assert [(m.name, m.uid, m.uname, m.mtime) for m in members] == [("train.py", 0, "", 0), ("pkg/u.py", 0, "", 0)]
+        assert members[0].mode & 0o111
+
     def test_group_cancel_repeats_after_a_lost_answer(
         self, api_key: str, base_url: str, mock_api: respx.MockRouter, no_sleep: list[float]
     ) -> None:
