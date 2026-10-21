@@ -7,6 +7,7 @@ from datetime import timezone as tz
 from typing import Any, Optional, Union
 from urllib.parse import quote
 
+from runcrate._transport import LAUNCH_TIMEOUT, new_idempotency_key
 from runcrate.models.schedules import (
     Schedule,
     ScheduleCreate,
@@ -148,7 +149,9 @@ class Schedules:
             name=name,
             enabled=enabled,
         )
-        data, _ = self._transport.request("POST", _PATH, json=body, cast_to=Schedule)
+        data, _ = self._transport.request(
+            "POST", _PATH, json=body, cast_to=Schedule, idempotency_key=new_idempotency_key()
+        )
         return data
 
     def list(self) -> list[Schedule]:
@@ -195,7 +198,10 @@ class Schedules:
 
     def run_now(self, id: str) -> ScheduleRun:
         """Launch the schedule's spec now, paused or not. ``next_run_at`` does not move."""
-        data, _ = self._transport.request("POST", _path(id, "/run-now"), cast_to=ScheduleRun)
+        # It launches a machine and is not deduplicated: never sent again once it may have arrived.
+        data, _ = self._transport.request(
+            "POST", _path(id, "/run-now"), cast_to=ScheduleRun, min_timeout=LAUNCH_TIMEOUT
+        )
         return data
 
 
@@ -228,7 +234,9 @@ class AsyncSchedules:
             name=name,
             enabled=enabled,
         )
-        data, _ = await self._transport.request("POST", _PATH, json=body, cast_to=Schedule)
+        data, _ = await self._transport.request(
+            "POST", _PATH, json=body, cast_to=Schedule, idempotency_key=new_idempotency_key()
+        )
         return data
 
     async def list(self) -> list[Schedule]:
@@ -271,6 +279,6 @@ class AsyncSchedules:
     async def run_now(self, id: str) -> ScheduleRun:
         """Launch the schedule's spec now, paused or not. ``next_run_at`` does not move."""
         data, _ = await self._transport.request(
-            "POST", _path(id, "/run-now"), cast_to=ScheduleRun
+            "POST", _path(id, "/run-now"), cast_to=ScheduleRun, min_timeout=LAUNCH_TIMEOUT
         )
         return data

@@ -85,6 +85,14 @@ class TimeoutError(RuncrateError):
     """Request timed out."""
 
 
+class JobWaitTimeoutError(TimeoutError):
+    """``jobs.wait()`` ran out of time before the job ended. ``job`` is the job as last seen."""
+
+    def __init__(self, message: str, *, job: Any) -> None:
+        self.job = job
+        super().__init__(message)
+
+
 _STATUS_MAP: dict[int, type[ApiError]] = {
     400: BadRequestError,
     401: AuthenticationError,

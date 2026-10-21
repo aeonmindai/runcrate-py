@@ -9,7 +9,7 @@ description = "Official Python SDK for the Runcrate API"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.9"
-dependencies = [ "httpx>=0.25.0,<1.0", "pydantic>=2.0,<3.0",]
+dependencies = [ "httpx>=0.25.0,<1.0", "pydantic>=2.0,<3.0", "typing-extensions>=4.6",]
 [[project.authors]]
 name = "Runcrate"
 email = "support@runcrate.ai"

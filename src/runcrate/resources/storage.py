@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+from runcrate._transport import new_idempotency_key
 from runcrate.models.storage import StorageVolume, StorageCreate, StorageDeleteResult, StorageRegion
 
 
@@ -47,7 +48,11 @@ class Storage:
             region=region,
         ).model_dump(exclude_none=True)
         data, _ = self._transport.request(
-            "POST", "/api/v1/storage", json=body, cast_to=StorageVolume
+            "POST",
+            "/api/v1/storage",
+            json=body,
+            cast_to=StorageVolume,
+            idempotency_key=new_idempotency_key(),
         )
         return data
 
@@ -104,7 +109,11 @@ class AsyncStorage:
             region=region,
         ).model_dump(exclude_none=True)
         data, _ = await self._transport.request(
-            "POST", "/api/v1/storage", json=body, cast_to=StorageVolume
+            "POST",
+            "/api/v1/storage",
+            json=body,
+            cast_to=StorageVolume,
+            idempotency_key=new_idempotency_key(),
         )
         return data
 

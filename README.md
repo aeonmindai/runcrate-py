@@ -72,6 +72,12 @@ client = Runcrate(
 )
 ```
 
+Reads, updates and deletes are retried on 429, 5xx, timeouts and lost connections. A request that creates or launches something is never sent twice by accident:
+
+- Job submits and reruns send an `Idempotency-Key`, which the server honours, so they are retried like reads.
+- Instance, schedule and volume creates also send an `Idempotency-Key`, but those routes do not deduplicate it yet; `schedules.run_now` sends none. Once one of these, or a run-now, may have reached Runcrate (a timeout, a lost connection, a 500, 502 or 504) it is not sent again and the error is raised: check `instances.list()` before launching again. Only a 429 or 503, which say nothing was launched, and a connection that never opened are retried.
+- A launch waits at least 75 seconds (a job submit 135) for its answer, whatever `timeout` is, so the client does not give up while the server is still launching.
+
 ## Model Inference
 
 The `client.models` resource connects to `api.runcrate.ai` for AI model inference. Same API key works for both infrastructure and inference.
@@ -251,6 +257,52 @@ client.instances.update(instance.id, max_runtime_minutes=480, idle_shutdown_minu
 ```
 - Both default to `None` (no limit, idle stop off) and are left out of the request. Values out
   of range raise `UnprocessableEntityError` (HTTP 422, `validation_error`).
+
+### Jobs
+
+A job runs one command on its own fresh GPU machine, which stops (and stops billing) when the command ends. Files the command writes to `$RUNCRATE_OUTPUT_DIR` are kept 30 days.
+
+```python
+import os
+
+job = client.jobs.run(
+    command="python train.py --epochs 3 && cp model.pt $RUNCRATE_OUTPUT_DIR/",
+    gpu_type=["A4000", "L40S"],     # tried in order; an entry may carry its count, "H100:2"
+    max_runtime_minutes=60,         # required, 1 to 10080; each attempt stops after this long
+    template="ubuntu-train",
+    env={"HF_TOKEN": os.environ["HF_TOKEN"]},
+    tags={"project": "vision"},
+    max_retries=2,                  # a machine failure is retried; retry_on=["nonzero_exit"] retries the command's own
+    code={"git": {"url": "https://github.com/acme/train", "ref": "main"}},
+)
+
+for chunk in client.jobs.follow_logs(job.id):   # the output as it is written, until the job ends
+    print(chunk.text, end="")
+
+done = client.jobs.wait(job.id, timeout=3600)   # polls with backoff; JobWaitTimeoutError past the timeout
+print(done.status, done.exit_code, done.cost_usd)
+
+for artifact in client.jobs.artifacts.list(job.id):
+    client.jobs.artifacts.download(job.id, artifact.path, to=os.path.basename(artifact.path))
+```
+
+Send local code instead of a repository: `upload = client.jobs.uploads.upload("./my-project")` packs the directory (without `.git`, `__pycache__` and `node_modules`) and sends it; run with `code={"upload_id": upload.upload_id}` within 24 hours.
+
+| Method | What it does |
+|---|---|
+| `jobs.run(**spec, idempotency_key=None)` | Runs one job. |
+| `jobs.run_group(**spec, count= or params=, max_parallel=)` | Runs `count` copies, or one job per `params` entry (each merged over `env`); answers the group with its jobs. |
+| `jobs.get(id)`, `jobs.list(status=, tags=, group_id=, q=, gpu_type=, created_after=, limit=, cursor=)`, `jobs.list_all(...)` | Reads jobs, newest first. `list` answers one page (`has_more`, `cursor`); `list_all` pages through. |
+| `jobs.cancel(id)`, `jobs.delete(id)` | Cancels a live job; deletes a job that ended, with its logs and outputs. |
+| `jobs.rerun(id, **overrides)` | Runs the spec again as a new job, with its env values; `env` is merged over them. |
+| `jobs.logs(id, after=, limit=, follow=)`, `jobs.follow_logs(id, after=0)` | One page of output; or every chunk as it is written until the job ends. |
+| `jobs.events(id)`, `jobs.metrics(id, step=)` | The timeline (queued, launch attempts, started, exited, ...); GPU use per step. |
+| `jobs.wait(id, timeout=, poll_interval=2, max_poll_interval=30)` | Polls until the job ends, the gap doubling. |
+| `jobs.artifacts.list(id)`, `.url(id, path)`, `.download(id, path, to=None)` | Outputs; a signed URL valid an hour (the API key never goes to it). |
+| `jobs.uploads.upload(dir_or_tar_gz_or_bytes)` | Sends your code as a tar.gz. |
+| `job_groups.get(id)`, `job_groups.cancel(id)` | A group's status counts and cost; cancels its live jobs. |
+
+`AsyncRuncrate` has the same methods (`follow_logs` and `list_all` are async iterators). Every submit and rerun sends an `Idempotency-Key`, a new one per call or yours, and its retries reuse it: a retry after a timeout answers the first job instead of starting a second. Pass your own key to make a submit safe to repeat across processes for 24 hours.
 
 ### Environments
 
